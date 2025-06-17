@@ -1,7 +1,5 @@
 #include "main.h"
-#include "stm32f7xx_hal.h"
 #include "stm32f7xx_hal_can.h"
-#include <string.h>
 
 CAN_HandleTypeDef hcan1;
 CAN_TxHeaderTypeDef TxHeader;
@@ -16,6 +14,7 @@ int main(void) {
   MX_GPIO_Init();
   MX_CAN1_Init();
 
+  // CAN1: Configure filter (accept all messages)
   CAN_FilterTypeDef filter;
   filter.FilterIdHigh = 0;
   filter.FilterIdLow = 0;
@@ -28,8 +27,10 @@ int main(void) {
   filter.FilterActivation = ENABLE;
   HAL_CAN_ConfigFilter(&hcan1, &filter);
 
+  // Start CAN
   HAL_CAN_Start(&hcan1);
 
+  // Configure TX message (ID = 0x123, Standard Frame)
   TxHeader.StdId = 0x123;
   TxHeader.ExtId = 0;
   TxHeader.RTR = CAN_RTR_DATA;
@@ -38,14 +39,16 @@ int main(void) {
   TxHeader.TransmitGlobalTime = DISABLE;
 
   while (1) {
+    // Send CAN message
     if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) == HAL_OK) {
-      HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET); // LED ON
+      HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET); // LED ON (transmit success)
     }
 
+    // Check if received message matches sent message
     if (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0) > 0) {
       HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &RxHeader, RxData);
       if (RxHeader.StdId == 0x123 && memcmp(TxData, RxData, 8) == 0) {
-        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0); // Toggle LED
+        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0); // Toggle LED (loopback success)
         HAL_Delay(500);
       }
     }
